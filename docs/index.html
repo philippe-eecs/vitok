@@ -1,0 +1,180 @@
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learnings from Scaling Visual Tokenizers for Reconstruction and Generation</title>
+    <meta name="description" content="ViTok Paper description.">
+    <meta name="referrer" content="no-referrer-when-downgrade">
+    <meta name="robots" content="all">
+    <meta content="en_EN" property="og:locale">
+    <meta content="website" property="og:type">
+    <meta content="https://philippe-eecs.github.io/vitok" property="og:url">
+    <meta content="ViTok" property="og:title">
+    <meta content="Learnings from Scaling Visual Tokenizers for Reconstruction and Generation" property="og:description">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@tokenpilled65B">
+    <meta name="twitter:description" content="Learnings from Scaling Visual Tokenizers for Reconstruction and Generation">
+    <meta name="twitter:image:src" content="assets/figures/ViTok.png">
+
+    <link rel="stylesheet" type="text/css" media="all" href="assets/stylesheets/main_free.css" />
+    <link rel="stylesheet" type="text/css" media="all" href="clarity/clarity.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/foundation.min.css">
+    <link href="assets/fontawesome-free-6.6.0-web/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/img-comparison-slider@8/dist/styles.css"/>
+    <script defer src="https://cdn.jsdelivr.net/npm/img-comparison-slider@8/dist/index.js"></script>
+    <script src="assets/scripts/navbar.js"></script> <!-- Comment to remove table of content. -->
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+            "HTML-CSS": {
+              scale: 95,
+              fonts: ["Gyre-Pagella"],
+              imageFont: null,
+              undefinedFamily: "'Arial Unicode MS', cmbright"
+            },
+            tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                processEscapes: true
+              }
+          });
+    </script>
+    <script type="text/javascript"
+    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+
+<body>
+    <!-- Title Page -->
+    <!-- Dark Theme Example: Change the background colour dark and change the following div "blog-title" into "blog-title white". -->
+    <div class="container blog" id="first-content" style="background-color: #E0E4E6;">
+        <!-- If you don't have a project cover: Change "blog-title" into "blog-title no-cover"  -->
+        <div class="blog-title no-cover">
+            <div class="blog-intro">
+                <div>
+                    <h1 class="title">Learnings from Scaling Visual Tokenizers for Reconstruction and Generation</h1>
+                    <p class="author">by Philippe Hansen-Estruch, David Yan, Ching-Yao Chung, Orr Zohar, Jialiang Wang, Tingbo Hou, Tao Xu, Sriram Vishwanath, Peter Vajda, Xinlei Chen</p>
+                    <p class="abstract">
+                            Visual tokenization via auto-encoding is a critical component of state-of-the-art image and video generation, 
+                            yet tokenizers have received far less attention than generators in scaling efforts. 
+                            To address this gap, we introduce Vision Transformer Tokenizer or <strong>ViTok</strong>, a Vision Transformer-based auto-encoder enhanced with Llama and trained on large-scale datasets. 
+                            Our study systematically explores scaling the bottleneck, encoder, and decoder sizes. 
+                            We find that increasing the bottleneck size improves reconstruction but degrades generative performance when it becomes too large. 
+                            Scaling the encoder yields no significant benefits for reconstruction and actively hinders downstream generation tasks, 
+                            while scaling the decoder enhances reconstruction quality but has limited impact on generative performance. 
+                            These findings suggest that scaling within the current auto-encoding paradigm offers limited benefits. 
+                            However, we observe that the decoder behaves as a conditional generative model, 
+                            balancing trade-offs in reconstruction and generative loss functions. 
+                            Additionally, we find that videos are inherently more compressible than images at equivalent compression rates, 
+                            presenting unique opportunities for future research. 
+                            Through our scaling analysis, ViTok achieves competitive performance in image and video reconstruction across benchmarks l
+                            ike ImageNet-1K, COCO, and UCF-101, while reducing computational costs by 2–5× compared to prior methods. 
+                            When integrated with Diffusion Transformers, ViTok sets new state-of-the-art benchmarks for class-conditional video generation, 
+                            demonstrating its potential as a scalable and efficient visual tokenizer.
+                    </p>
+                   
+                </div>
+               
+                <div class="info">
+                    <div>
+                        <a href="https://github.com/philippe-eecs/vitok" class="button icon" style="background-color: rgba(255, 255, 255, 0.25); margin-bottom: 0;">Code <i class="fa-solid fa-code"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container blog main first" id="blog-main">
+        <figure>
+            <img src="assets/figures/ViTok.png" alt="ViTok Main Figure" style="width: 100%;" />
+        </figure>
+        <p class='text'> 
+            We showcase our ViTok architecture and key findings from scaling auto-encoders for image and video reconstruction and generation below. 
+            We enhance traditional CNN-based auto-encoders by integrating Vision Transformers (ViTs) with an upgraded Llama architecture into an asymmetric auto-encoder framework forming 
+            Vision Transformer Tokenizer or ViTok. 
+            Visual inputs are embedded as patches or tubelets, processed by a compact Llama Encoder, and bottlenecked to create a latent code. 
+            The encoded representation is then upsampled and handled by a larger Llama Decoder to reconstruct the input. 
+            Color-coded text boxes highlight the effects of scaling the encoder, adjusting the bottleneck size, and expanding the decoder. 
+            Additionally, we discuss trade-offs in loss optimization and the model's adaptability to video data. 
+            Our best performing ViTok variant achieves competitive performance with prior state-of-the-art tokenizers while reducing computational burden.
+
+            Below we present our findings in more detail and place figures related. Please refer to our paper for a comprehensive analysis and additional results.
+            
+            More information and code coming soon!
+        </p>
+    </div>
+
+    <!-- Content -->
+    <div class="container blog main first" id="blog-main">
+        <h1>Findings</h1>
+        <p class='text'> 
+            Finding 1. Regardless of code shape or FLOPs expended in auto-encoding, the total number of floating points in the latent code ($E$) is the most predictive bottleneck for visual reconstruction performance.
+            <figure>
+                <img src="assets/figures/E_vs_metrics.png" alt="256p Image Reconstruction Results" style="width: 100%;" />
+                <figcaption>256p Image Reconstruction Results</figcaption>
+            </figure>
+            <figure>
+                <img src="assets/figures/512p_E_vs_metrics.png" alt="512p Image Reconstruction Results" style="width: 100%;" />
+                <figcaption>512p Image Reconstruction Results</figcaption>
+            </figure>
+        </p>
+    
+        <p class="text">
+            Finding 2. In generative tasks, scaling the number of floating points in the code ($E$) does not consistently improve generative performance. Instead, optimal results are achieved by tuning both $E$ and $c$ to balance reconstruction and generation capabilities. A low $E$ limits reconstruction quality, while high $E$ and channel size $c$ hinder the convergence and performance of the generative model.
+            <figure>
+                <img src="assets/figures/E_vs_metrics_generation.png" alt="256p Image Generation Results" style="width: 100%;" />
+                <figcaption>256p Image Generation Results</figcaption>
+            </figure>
+        </p>
+    
+        <p class="text">
+            Finding 3. Scaling the encoder provides no benefits for reconstruction performance and can potentially worsen generation results.
+            Finding 4. While scaling the decoder can enhance reconstruction performance, it provides limited benefits for generation tasks.
+            <figure>
+                <img src="assets/figures/encoder_size_vs_metrics.png" alt="256p Encoder Scaling on Image Reconstruction" style="width: 100%;" />
+                <figcaption>256p Encoder Scaling on Image Reconstruction</figcaption>
+            </figure>
+            <figure>
+                <img src="assets/figures/decoder_size_vs_metrics.png" alt="256p Decoder Scaling on Image Reconstruction" style="width: 100%;" />
+                <figcaption>256p Decoder Scaling on Image Reconstruction</figcaption>
+            </figure>
+            <figure>
+                <img src="assets/figures/encoder_size_vs_metrics_generation.png" alt="256p Encoder Scaling on Image Generation" style="width: 100%;" />
+                <figcaption>256p Encoder Scaling on Image Generation</figcaption>
+            </figure>
+            <figure>
+                <img src="assets/figures/decoder_size_vs_metrics_generation.png" alt="256p Decoder Scaling on Image Generation" style="width: 100%;" />
+                <figcaption>256p Decoder Scaling on Image Generation</figcaption>
+            </figure>
+        </p>
+    
+        <p class="text">
+            Finding 5. There is a trade-off between rSSIM/rPSNR and rFID/rIS, influenced by the choice of loss weights and objectives (including perceptual and GAN losses). Consequently, the decoder can be viewed as a conditional generation model, which effectively extends the main generator.
+            <figure>
+                <img src="assets/figures/loss_curve_tradeoff.png" alt="Metric Trade-offs in 256p Image Reconstruction" style="width: 100%;" />
+                <figcaption>Metric Trade-offs in 256p Image Reconstruction</figcaption>
+            </figure>
+        </p>
+    
+        <p class="text">
+            Finding 6. Videos exhibit the same reconstruction bottleneck characteristics with respect to $E$ as images do. However, auto-encoding takes advantage of the inherent compressibility of videos, enabling $E$ to scale more effectively relative to the total number of pixels than images.
+            Finding 7. Increasing the frame count for a fixed tubelet size yields improved metrics, indicating the potential for more efficient compression in longer videos.
+            <figure>
+                <img src="assets/figures/E_vs_metrics_detailed_video.png" alt="256p Video Reconstruction Results Detailed Over $E$" style="width: 100%;" />
+                <figcaption>256p Video Reconstruction Results Detailed Over $E$</figcaption>
+            </figure>
+            <figure>
+                <img src="assets/figures/E_vs_metrics_video_bar.png" alt="Multi-frame 256p Video Reconstruction" style="width: 100%;" />
+                <figcaption>Multi-frame 256p Video Reconstruction</figcaption>
+            </figure>
+        </p>
+    </div>
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js"></script>
+    <script>hljs.initHighlightingOnLoad();</script>
+    <script src="clarity/clarity.js"></script>    
+    <script src="assets/scripts/main.js"></script>    
+    </html>
+</body>
