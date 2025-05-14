@@ -1,405 +1,98 @@
+<script src="constants.js"></script>
+<!DOCTYPE html>
 <html lang="en-GB">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learnings from Scaling Visual Tokenizers for Reconstruction and Generation</title>
-    <meta name="description" content="ViTok Paper description.">
-    <meta name="referrer" content="no-referrer-when-downgrade">
-    <meta name="robots" content="all">
-    <meta content="en_EN" property="og:locale">
-    <meta content="website" property="og:type">
-    <meta content="https://philippe-eecs.github.io/vitok" property="og:url">
-    <meta content="ViTok" property="og:title">
-    <meta content="Learnings from Scaling Visual Tokenizers for Reconstruction and Generation" property="og:description">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ViTok Reconstruction Explorer</title>
 
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:site" content="@tokenpilled65B">
-    <meta name="twitter:description" content="Learnings from Scaling Visual Tokenizers for Reconstruction and Generation">
-    <meta name="twitter:image:src" content="assets/figures/ViTok.png">
+  <!-- external CSS -->
+  <link rel="stylesheet" href="assets/stylesheets/main_free.css">
+  <link rel="stylesheet" href="clarity/clarity.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/foundation.min.css">
+  <link href="assets/fontawesome-free-6.6.0-web/css/all.min.css" rel="stylesheet">
 
-    <link rel="stylesheet" type="text/css" media="all" href="assets/stylesheets/main_free.css" />
-    <link rel="stylesheet" type="text/css" media="all" href="clarity/clarity.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/foundation.min.css">
-    <link href="assets/fontawesome-free-6.6.0-web/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/img-comparison-slider@8/dist/styles.css"/>
-    <script defer src="https://cdn.jsdelivr.net/npm/img-comparison-slider@8/dist/index.js"></script>
-    <script src="assets/scripts/navbar.js"></script> <!-- Comment to remove table of content. -->
-    <script type="text/x-mathjax-config">
-        MathJax.Hub.Config({
-            "HTML-CSS": {
-              scale: 95,
-              fonts: ["Gyre-Pagella"],
-              imageFont: null,
-              undefinedFamily: "'Arial Unicode MS', cmbright"
-            },
-            tex2jax: {
-                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
-                processEscapes: true
-              }
-          });
-    </script>
-    <script type="text/javascript"
-    src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
-    </script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <style>
+    html,body{background:#E0E4E6;margin:0;padding:0}
+    header.container.blog{background:transparent;padding:1.5rem 0 0}
+    main.container.blog.main{background:#fff;border-radius:8px;box-shadow:0 2px 6px #0002;width:90%;max-width:1600px;margin:0 auto 4rem;padding:2rem;display:flex;flex-direction:column;align-items:center}
+    .controls{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:2rem}
+    .viewer-grid{display:grid;gap:1rem;width:100%;justify-items:center;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+    .viewer-grid img{width:100%;height:auto;border-radius:4px;box-shadow:0 0 4px #0001}
+    .diff-grid{display:grid;gap:1rem;width:100%;margin-top:2rem;justify-items:center;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+    .diff-grid canvas{width:100%;height:auto;border-radius:4px;box-shadow:0 0 4px #0001}
+    .img-magnifier-container{position:relative;display:inline-block}
+    .img-magnifier-glass{position:absolute;border:3px solid #000;border-radius:50%;width:200px;height:200px;pointer-events:none;display:none;background-repeat:no-repeat;box-shadow:0 0 5px #0005}
+  </style>
 </head>
-
 <body>
-    <!-- Title Page -->
-    <!-- Dark Theme Example: Change the background colour dark and change the following div "blog-title" into "blog-title white". -->
-    <div class="container blog" id="first-content" style="background-color: #E0E4E6;">
-        <!-- If you don't have a project cover: Change "blog-title" into "blog-title no-cover"  -->
-        <div class="blog-title no-cover">
-            <div class="blog-intro">
-                <div>
-                    <h1 class="title">Learnings from Scaling Visual Tokenizers for Reconstruction and Generation</h1>
-                    <p class="author">by Philippe Hansen-Estruch, David Yan, Ching-Yao Chung, Orr Zohar, Jialiang Wang, Tingbo Hou, Tao Xu, Sriram Vishwanath, Peter Vajda, Xinlei Chen</p>
-                    <p class="abstract">
-                            Visual tokenization via auto-encoding is a critical component of state-of-the-art image and video generation, 
-                            yet tokenizers have received far less attention than generators in scaling efforts. 
-                            To address this gap, we introduce Vision Transformer Tokenizer or <strong>ViTok</strong>, a Vision Transformer-based auto-encoder enhanced with Llama and trained on large-scale datasets. 
-                            Our study systematically explores scaling the bottleneck, encoder, and decoder sizes. 
-                            We find that increasing the bottleneck size improves reconstruction but degrades generative performance when it becomes too large. 
-                            Scaling the encoder yields no significant benefits for reconstruction and actively hinders downstream generation tasks, 
-                            while scaling the decoder enhances reconstruction quality but has limited impact on generative performance. 
-                            These findings suggest that scaling within the current auto-encoding paradigm offers limited benefits. 
-                            However, we observe that the decoder behaves as a conditional generative model, 
-                            balancing trade-offs in reconstruction and generative loss functions. 
-                            Additionally, we find that videos are inherently more compressible than images at equivalent compression rates, 
-                            presenting unique opportunities for future research. 
-                            Through our scaling analysis, ViTok achieves competitive performance in image and video reconstruction across benchmarks l
-                            ike ImageNet-1K, COCO, and UCF-101, while reducing computational costs by 2–5× compared to prior methods. 
-                            When integrated with Diffusion Transformers, ViTok sets new state-of-the-art benchmarks for class-conditional video generation, 
-                            demonstrating its potential as a scalable and efficient visual tokenizer.
-
-                            <b>More updates coming soon, star/watch the github to keep posted!</b>
-                    </p>
-                   
-                </div>
-
-                <div class="info">
-                    <div>
-                        <a href="https://github.com/philippe-eecs/vitok" class="button icon" style="background-color: rgba(255, 255, 255, 0.25); margin-bottom: 0;">Source Code <i class="fa-solid fa-code"></i></a>
-                    </div>
-                </div>
-                <div class="info">
-                    <div>
-                        <a href="https://arxiv.org/abs/2501.09755" class="button icon" style="background-color: rgba(255, 255, 255, 0.25); margin-bottom: 0;">ArXiv<i class="fa-solid fa-code"></i></a>
-                    </div>
-                </div>
-               
-            </div>
-        </div>
-    </div>
-
-    <div class="container blog main first" id="blog-main">
-        <figure>
-            <img src="assets/figures/ViTok.png" alt="ViTok Main Figure" style="width: 100%;" />
-        </figure>
-        <p class='text'> 
-            We showcase our ViTok architecture and key findings from scaling auto-encoders for image and video reconstruction and generation below. 
-            We enhance traditional CNN-based auto-encoders by integrating Vision Transformers (ViTs) with an upgraded Llama architecture into an asymmetric auto-encoder framework forming 
-            Vision Transformer Tokenizer or ViTok. 
-            Visual inputs are embedded as patches or tubelets, processed by a compact Llama Encoder, and bottlenecked to create a latent code. 
-            The encoded representation is then upsampled and handled by a larger Llama Decoder to reconstruct the input. 
-            Color-coded text boxes highlight the effects of scaling the encoder, adjusting the bottleneck size, and expanding the decoder. 
-            Additionally, we discuss trade-offs in loss optimization and the model's adaptability to video data. 
-            Our best performing ViTok variant achieves competitive performance with prior state-of-the-art tokenizers while reducing computational burden.
-
-            Below we present our findings in more detail and place figures related. Please refer to our paper for a comprehensive analysis and additional results.
-            
-            <b>High resolution tokenizer weights + more details coming soon!</b>
-        </p>
-    </div>
-
-    <!-- Content -->
-    <div class="container blog main first" id="blog-main">
-        <h1>Findings</h1>
-        <p class='text'> 
-            <b>Finding 1.</b> Regardless of code shape or FLOPs expended in auto-encoding, the total number of floating points in the latent code (E) is the most predictive bottleneck for visual reconstruction performance.
-            <figure>
-                <img src="assets/figures/E_vs_metrics.png" alt="256p Image Reconstruction Results" style="width: 100%;" />
-                <figcaption><b>256p image reconstruction sweep over floating points E.</b>  We evaluate ViTok S-B trained with stage 1 objective using combinations of patch sizes p = {8, 16, 32} and channel widths c = {4, 8, 16, 32, 64} to investigate how the total floating points E influences FID, IS, SSIM, and PSNR in reconstruction tasks. Our findings reveal a strong correlation between log(E) and either log(rFID)/rIS/rSSIM/rPSNR. This indicates that E is the primary bottleneck for reconstruction, irrespective of the code shape or FLOPs expended. Additionally, similar trends are observed across the ImageNet-1K and COCO datasets, indicating that these patterns are consistent regardless of the dataset used.</figcaption>
-            </figure>
-        </p>
-    
-        <p class="text">
-            Finding 2. In generative tasks, scaling the number of floating points in the code (E) does not consistently improve generative performance. Instead, optimal results are achieved by tuning both E and c to balance reconstruction and generation capabilities. A low E limits reconstruction quality, while high E and channel size c hinder the convergence and performance of the generative model.
-            <figure>
-                <img src="assets/figures/E_vs_metrics_generation.png" alt="256p Image Generation Results" style="width: 100%;" />
-                <figcaption><b>256p image generation over E.</b> We evaluate each tokenizer from our prior sweep on DiT. Results for CFG scales of 1.5 and 3.0 are on the left two and right two plots respectively. Our results show no strong linear correlation between log(E) and generation performance. Instead, a second-order trend reveals an optimal E for each patch size, indicating a complex interplay between E and channel. This highlights the necessity of optimizing both parameters to balance reconstruction quality with generative capabilities.</figcaption>
-            </figure>
-        </p>
-    
-        <p class="text">
-            <b>Finding 3.</b> Scaling the encoder provides no benefits for reconstruction performance and can potentially worsen generation results.
-            <b>Finding 4.</b> While scaling the decoder can enhance reconstruction performance, it provides limited benefits for generation tasks.
-            <figure>
-                <img src="assets/figures/encoder_size_vs_metrics.png" alt="256p Encoder Scaling on Image Reconstruction" style="width: 100%;" />
-                <figcaption><b>Encoder scaling on 256p image reconstruction</b> We evaluate reconstruction metrics of ViTok trained with stage 1 over model sizes S-S, B-S, S-B, B-B, B-L, L-L. There is no correlation between encoder size and reconstruction performance indicating that scaling the encoder is unhelpful in improving reconstruction capabilities. This argues that visual encoding does not require much computation.</figcaption>
-            </figure>
-            <figure>
-                <img src="assets/figures/decoder_size_vs_metrics.png" alt="256p Decoder Scaling on Image Reconstruction" style="width: 100%;" />
-                <figcaption><b>Decoder scaling on 256p image reconstruction</b> Using the results from before, we plot various decoder sizes (S, B, L) over reconstruction performance. There is a strong correlation between decoder size and reconstruction performance, which indicates scaling the decoder improves reconstruction. Although, increasing the decoder size from Base to Large does not provide the same boost of performance as doubling E to 8192 from 4096.</figcaption>
-            </figure>
-            <figure>
-                <img src="assets/figures/encoder_size_vs_metrics_generation.png" alt="256p Encoder Scaling on Image Generation" style="width: 100%;" />
-                <figcaption><b>Encoder scaling on 256p image generation</b> We evaluate each tokenizer from before on DiT. We plot encoder size over generation metric results for CFG scales of 1.5 and 3.0 on the left two and right two plots respectively. There is a weak negative correlation between encoder size and final performance indicating that scaling the encoder is harmful for generation results. This is coupled by the fact that increased encoder sizes make training slower due to increased computational overhead.</figcaption>
-            </figure>
-            <figure>
-                <img src="assets/figures/decoder_size_vs_metrics_generation.png" alt="256p Decoder Scaling on Image Generation" style="width: 100%;" />
-                <figcaption><b>Decoder scaling on 256p image generation</b> Using the results from before, we plot various decoder sizes (S, B, L) over generation performance. We plot decoder size over generation metric results for CFG scales of 1.5 and 3.0 on the left two and right two plots respectively. Unlike reconstruction, there is no clear correlation between decoder size and generation performance.  This indicates that scaling the decoder has minimal benefits overall for auto-encoding.</figcaption>
-            </figure>
-        </p>
-    
-        <p class="text">
-            <b>Finding 5.</b> There is a trade-off between rSSIM/rPSNR and rFID/rIS, influenced by the choice of loss weights and objectives (including perceptual and GAN losses). Consequently, the decoder can be viewed as a conditional generation model, which effectively extends the main generator.
-            <figure>
-                <img src="assets/figures/loss_curve_tradeoff.png" alt="Metric Trade-offs in 256p Image Reconstruction" style="width: 100%;" />
-                <figcaption><b>Metric trade-offs in 256p image reconstruction</b> We train ViTok S-B/16 with stage 1, varying the LPIPS (LP in figure) weight and using either L1 or L2 MSE reconstruction loss. Additionally, we finetune ViTok S-B/16 with stage 2 and include the result as L2+LP+GAN. The results indicate that enhancing rFID/rIS scores through increased perceptual and visual losses requires a trade-off with rSSIM/rPSNR, resulting in loss of information from the original image. This indicates the decoder’s role as a generative component.</figcaption>
-            </figure>
-        </p>
-    
-        <p class="text">
-            <b>Finding 6.</b> Videos exhibit the same reconstruction bottleneck characteristics with respect to E as images do. However, auto-encoding takes advantage of the inherent compressibility of videos, enabling E to scale more effectively relative to the total number of pixels than images.
-            <figure>
-                <img src="assets/figures/E_vs_metrics_detailed_video.png" alt="256p Video Reconstruction Results Detailed Over E" style="width: 100%;" />
-                <figcaption><b>256p video reconstruction results over E</b> We train ViTok S-B with stage 1 on 16 frame 256p videos at 8 fps, varying tubelet patch sizes and temporal strides. Reconstruction performance is evaluated using rFID per frame, rFVD, rSSIM, and rPSNR on the Kinetics-700 validation, UCF101 training, and Shutterstock validation datasets. The results exhibit a similar trend to image reconstruction, demonstrating a strong correlation between E and reconstruction performance. Expectantly, videos are more compressible than a direct scaling from images would suggest.</figcaption>
-            </figure>
-        </p>
-    </div>
-
-    <div class="container blog main first" id="blog-main">
-        <h1>Reconstruction Results</h1>
-    <table style="width: 80%; margin: 0 auto 20px;">
-        <thead>
-          <tr>
-            <th rowspan="2">Name</th>
-            <th rowspan="2">Params (M)</th>
-            <th rowspan="2">GFLOPs</th>
-            <th colspan="3">ImageNet</th>
-            <th colspan="3">COCO</th>
-          </tr>
-          <tr>
-            <th>rFID↓</th>
-            <th>PSNR↑</th>
-            <th>SSIM↑</th>
-            <th>rFID↓</th>
-            <th>PSNR↑</th>
-            <th>SSIM↑</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>SD-VAE</td>
-            <td>59.3</td>
-            <td>162.2</td>
-            <td>0.78</td>
-            <td>25.08</td>
-            <td>0.705</td>
-            <td>4.63</td>
-            <td>24.82</td>
-            <td>0.720</td>
-          </tr>
-          <tr>
-            <td>SDXL-VAE</td>
-            <td>-</td>
-            <td>-</td>
-            <td>0.68</td>
-            <td>26.04</td>
-            <td><b>0.834</b></td>
-            <td>4.07</td>
-            <td>25.76</td>
-            <td><b>0.845</b></td>
-          </tr>
-          <tr>
-            <td>OAI</td>
-            <td>-</td>
-            <td>-</td>
-            <td>0.81</td>
-            <td>24.43</td>
-            <td>0.786</td>
-            <td>4.59</td>
-            <td>24.19</td>
-            <td>0.800</td>
-          </tr>
-          <tr>
-            <td>Cosmos-CI</td>
-            <td>-</td>
-            <td>-</td>
-            <td>2.02</td>
-            <td><b>31.74</b></td>
-            <td>0.700</td>
-            <td>5.6</td>
-            <td><b>31.74</b></td>
-            <td>0.703</td>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td><b>ViTok S-B/16</b></td>
-            <td>129.0</td>
-            <td>34.8</td>
-            <td>0.50</td>
-            <td>24.36</td>
-            <td>0.747</td>
-            <td>3.94</td>
-            <td>24.45</td>
-            <td>0.759</td>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td><b>ViTok S-L/16</b></td>
-            <td>426.8</td>
-            <td>113.4</td>
-            <td><b>0.46</b></td>
-            <td>24.74</td>
-            <td>0.758</td>
-            <td><b>3.87</b></td>
-            <td>24.82</td>
-            <td>0.771</td>
-          </tr>
-        </tbody>
-        <caption><b>256p image reconstruction comparison.</b> We assess the reconstruction performance of ViTok on the 256p ImageNet-1K and COCO-2017 validation sets, benchmarking them against CNN-based tokenizers with an equivalent compression ratio x16 spatial compression. Our ViTok S-B/16 tokenizer achieves state-of-the-art (SOTA) rFID scores on both ImageNet-1K and COCO datasets, outperforming other CNN-based continuous tokenizers while utilizing significantly fewer FLOPs. Furthermore, ViTok maintains competitive performance in SSIM and PSNR metrics compared to prior methods. When scaling decoder size to Large, ViTok improves all its reconstruction numbers.
-        </caption>
-      </table>
-
-      <table style="width: 80%; margin: 0 auto 20px;">
-        <thead>
-          <tr>
-            <th rowspan="2">Name</th>
-            <th rowspan="2">Params (M)</th>
-            <th rowspan="2">GFLOPs</th>
-            <th colspan="3">ImageNet</th>
-            <th colspan="3">COCO</th>
-          </tr>
-          <tr>
-            <th>rFID↓</th>
-            <th>PSNR↑</th>
-            <th>SSIM↑</th>
-            <th>rFID↓</th>
-            <th>PSNR↑</th>
-            <th>SSIM↑</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>SD-VAE</td>
-            <td>59.3</td>
-            <td>653.8</td>
-            <td>0.19</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td><b>ViTok S-B/16</b></td>
-            <td>129.0</td>
-            <td>160.8</td>
-            <td><b>0.18</b></td>
-            <td>26.72</td>
-            <td>0.803</td>
-            <td><b>2.00</b></td>
-            <td>26.14</td>
-            <td>0.790</td>
-          </tr>
-        </tbody>
-        <caption><b>512p image reconstruction comparison.</b> We assess the reconstruction performance of our top-performing tokenizers on the 512p ImageNet-1K and COCO-2017 validation sets, benchmarking them against a CNN-based tokenizer with an equivalent compression ratio x16 spatial compression. Our ViTok S-B/16 tokenizer maintains state-of-the-art (SOTA) results across all metrics, while maintaining computational significantly reducing flops</caption>
-      </table>
-      
-
-      <table style="width: 80%; margin: 0 auto 20px;">
-        <thead>
-          <tr>
-            <th>Method</th>
-            <th>Params (M)</th>
-            <th>GFLOPs</th>
-            <th># Tokens</th>
-            <th>rFID↓</th>
-            <th>rFVD↓</th>
-            <th>PSNR↑</th>
-            <th>SSIM↑</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>TATS</td>
-            <td>32</td>
-            <td>Unk</td>
-            <td>2048</td>
-            <td>-</td>
-            <td>162</td>
-            <td>-</td>
-            <td>-</td>
-          </tr>
-          <tr>
-            <td>MAGViT</td>
-            <td>158</td>
-            <td>Unk</td>
-            <td>1280</td>
-            <td>-</td>
-            <td>25</td>
-            <td>22.0</td>
-            <td>0.701</td>
-          </tr>
-          <tr>
-            <td>MAGViTv2</td>
-            <td>158</td>
-            <td>Unk</td>
-            <td>1280</td>
-            <td>-</td>
-            <td>16.12</td>
-            <td>-</td>
-            <td>-</td>
-          </tr>
-          <tr>
-            <td>LARP-L-Long</td>
-            <td>174</td>
-            <td>505.3</td>
-            <td>1024</td>
-            <td>-</td>
-            <td>20</td>
-            <td>-</td>
-            <td>-</td>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td><b>ViTok S-B/4x8</b></td>
-            <td>129</td>
-            <td>160.8</td>
-            <td>1024</td>
-            <td>2.13</td>
-            <td>8.04</td>
-            <td>30.11</td>
-            <td>0.923</td>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td><b>ViTok S-B/8x8</b></td>
-            <td>129</td>
-            <td>73.2</td>
-            <td>512</td>
-            <td>2.78</td>
-            <td>20.05</td>
-            <td>28.55</td>
-            <td>0.898</td>
-          </tr>
-          <tr style="background-color: #f0f8ff;">
-            <td><b>ViTok S-B/4x16</b></td>
-            <td>129</td>
-            <td>34.8</td>
-            <td>256</td>
-            <td>4.46</td>
-            <td>53.98</td>
-            <td>26.26</td>
-            <td>0.850</td>
-          </tr>
-        </tbody>
-        <caption><b>128p Video Reconstruction.</b> We evaluate S-B/4x8, S-B/8x8, and S-B/4x16 on video reconstruction for 16 frame 128p video on UCF-101 11k train set. ViTok S-B/4x8 achieves SOTA performance in rFVD and various compression statistics. ViTok S-B/8x8 and ViTok S-B/4x16 also provide competitive reconstruction numbers for the compression rate performed. ViTok also reduces the total FLOPs required from prior transformer based methods.</caption>
-      </table>
-    </div>
-      
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js"></script>
-    <script>hljs.initHighlightingOnLoad();</script>
-    <script src="clarity/clarity.js"></script>    
-    <script src="assets/scripts/main.js"></script>    
-    </html>
+<header class="container blog">
+  <div class="blog-title no-cover"><div class="blog-intro" style="text-align:center"><h1 class="title" style="margin:0 0 .25em">ViTok – Reconstruction Explorer</h1><p class="author" style="margin:0">Compare up to three model reconstructions side‑by‑side with synced magnifier (choose "None" to hide).</p></div></div>
+</header>
+<main class="container blog main">
+  <section class="controls">
+    <label>Model A:&nbsp;<select id="modelA"></select></label>
+    <label>Model B:&nbsp;<select id="modelB"></select></label>
+    <label>Model C:&nbsp;<select id="modelC"></select></label>
+    <label>Image:&nbsp;<select id="imagePick"></select></label>
+    <button id="diffBtn" class="button icon">Show Diffs&nbsp;<i class="fa-solid fa-wave-square"></i></button>
+  </section>
+  <section class="viewer-grid">
+    <figure class="img-magnifier-container" id="figRef"><figcaption class="text-center"><b>Reference</b></figcaption><img id="imgRef" alt="Reference"></figure>
+    <figure class="img-magnifier-container" id="figA"><figcaption class="text-center"><b id="capA">Model A</b></figcaption><img id="imgA" alt="Model A"></figure>
+    <figure class="img-magnifier-container" id="figB"><figcaption class="text-center"><b id="capB">Model B</b></figcaption><img id="imgB" alt="Model B"></figure>
+    <figure class="img-magnifier-container" id="figC" style="display:none"><figcaption class="text-center"><b id="capC">Model C</b></figcaption><img id="imgC" alt="Model C"></figure>
+  </section>
+  <section class="diff-grid">
+    <figure class="img-magnifier-container" id="figDiffA"><figcaption class="text-center"><b>Diff: Ref–A</b></figcaption><canvas id="diffA"></canvas></figure>
+    <figure class="img-magnifier-container" id="figDiffB"><figcaption class="text-center"><b>Diff: Ref–B</b></figcaption><canvas id="diffB"></canvas></figure>
+    <figure class="img-magnifier-container" id="figDiffC" style="display:none"><figcaption class="text-center"><b>Diff: Ref–C</b></figcaption><canvas id="diffC"></canvas></figure>
+  </section>
+</main>
+<script>
+const selA=document.getElementById('modelA'),selB=document.getElementById('modelB'),selC=document.getElementById('modelC'),selI=document.getElementById('imagePick');
+[selA,selB,selC].forEach(sel=>sel.add(new Option('None',-1)));
+MODELS.forEach((m,i)=>{[selA,selB,selC].forEach(sel=>sel.add(new Option(m.name,i)));});
+IMAGE_LIST.forEach(fn=>selI.add(new Option(fn,fn)));
+const imgRef=document.getElementById('imgRef'),imgA=document.getElementById('imgA'),imgB=document.getElementById('imgB'),imgC=document.getElementById('imgC');
+const figs={A:document.getElementById('figA'),B:document.getElementById('figB'),C:document.getElementById('figC')};
+const diffs={A:document.getElementById('diffA'),B:document.getElementById('diffB'),C:document.getElementById('diffC')};
+const diffFigs={A:document.getElementById('figDiffA'),B:document.getElementById('figDiffB'),C:document.getElementById('figDiffC')};
+const caps={A:document.getElementById('capA'),B:document.getElementById('capB'),C:document.getElementById('capC')};
+const refBase='assets/images/reference/';
+function updateImages(){
+  const selVals={A:+selA.value,B:+selB.value,C:+selC.value};
+  const fn=selI.value;
+  imgRef.src=refBase+fn;
+  ['A','B','C'].forEach(k=>{
+    const idx=selVals[k];
+    if(idx>=0){
+      figs[k].style.display='inline-block';
+      diffFigs[k].style.display='inline-block';
+      caps[k].textContent=MODELS[idx].name;
+      ({A:imgA,B:imgB,C:imgC}[k]).src=MODELS[idx].path+'/'+fn;
+    }else{
+      figs[k].style.display='none';
+      diffFigs[k].style.display='none';
+    }
+  });
+  Object.values(diffs).forEach(c=>c.style.display='none');
+}
+[selA,selB,selC,selI].forEach(s=>s.onchange=updateImages);
+window.addEventListener('load',updateImages);
+async function makeDiff(canvas,ori,mdl){if(!mdl||mdl.style.display==='none')return;await Promise.all([ori.decode(),mdl.decode()]);const w=ori.naturalWidth,h=ori.naturalHeight;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d'),c1=new OffscreenCanvas(w,h).getContext('2d'),c2=new OffscreenCanvas(w,h).getContext('2d');c1.drawImage(ori,0,0);c2.drawImage(mdl,0,0);const d1=c1.getImageData(0,0,w,h).data,d2=c2.getImageData(0,0,w,h).data,out=ctx.createImageData(w,h);for(let i=0;i<d1.length;i+=4){const diff=(Math.abs(d1[i]-d2[i])+Math.abs(d1[i+1]-d2[i+1])+Math.abs(d1[i+2]-d2[i+2]))/3;out.data[i]=out.data[i+1]=out.data[i+2]=diff;out.data[i+3]=255;}ctx.putImageData(out,0,0);canvas.style.display='block';if(canvas.updateBg)canvas.updateBg();}
+document.getElementById('diffBtn').onclick=()=>{makeDiff(diffs.A,imgRef,imgA);makeDiff(diffs.B,imgRef,imgB);makeDiff(diffs.C,imgRef,imgC);} ;
+// Synced magnifier
+const MAG_IDS=['imgRef','imgA','imgB','imgC','diffA','diffB','diffC'];
+const lenses={},zoom=3;
+function createLens(el){const lens=document.createElement('div');lens.className='img-magnifier-glass';el.parentElement.appendChild(lens);lenses[el.id]={el,lens};function updateBg(){const tag=el.tagName.toLowerCase();const src=(tag==='img'?el.src:el.toDataURL());lens.style.backgroundImage=`url('${src}')`;lens.style.backgroundSize=`${el.width*zoom}px ${el.height*zoom}px`;}el.updateBg=updateBg;if(el.tagName.toLowerCase()==='img')el.addEventListener('load',updateBg);window.addEventListener('resize',updateBg);updateBg();}
+function syncMove(rx,ry){Object.values(lenses).forEach(({el,lens})=>{if(el.style.display==='none'||!el.width){lens.style.display='none';return;}const w=el.clientWidth,h=el.clientHeight;const x=rx*w,y=ry*h;if(x<0||y<0||x>w||y>h){lens.style.display='none';return;}const hw=lens.offsetWidth/2,hh=lens.offsetHeight/2;lens.style.left=`${x-hw}px`;lens.style.top=`${y-hh}px`;lens.style.backgroundPosition=`${-(x*zoom-hw)}px ${-(y*zoom-hh)}px`;lens.style.display='block';});}
+function attachSync(id){const el=document.getElementById(id);if(!el)return;createLens(el);el.addEventListener('mousemove',e=>{const r=el.getBoundingClientRect();syncMove((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);});el.addEventListener('mouseleave',()=>Object.values(lenses).forEach(({lens})=>lens.style.display='none'));}
+window.addEventListener('load',()=>MAG_IDS.forEach(attachSync));
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js"></script>
+<script src="clarity/clarity.js"></script>
+<script src="assets/scripts/main.js"></script>
 </body>
+</html>
