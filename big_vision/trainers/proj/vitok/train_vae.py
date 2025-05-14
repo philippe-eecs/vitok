@@ -433,12 +433,12 @@ def main(argv):
     
     # Calculate element-wise loss (depends on loss_type)
     # Shape: (N, num_patches, C) assuming patches have channel dimension C
-    element_loss = jnp.abs(patches - decoded_patches) + 5 * jnp.square(patches - decoded_patches)
+    element_loss = jnp.abs(patches - decoded_patches) + 5 * jnp.square(patches - decoded_patches) #5 is a measure of scale of loss based on experiments (0.01 - 0.05 for L1 and 0.001 - 0.005 for L2)
 
     weighted_loss_elements = element_loss * padding_mask[:, :, None] # Shape (N, num_patches, C)
 
     # Sum weighted loss over patches dimension (axis=1) -> Shape (N, C)
-    loss_rec = jnp.sum(weighted_loss_elements, axis=1)
+    loss_rec_summed_over_patches = jnp.sum(weighted_loss_elements, axis=1)
 
     # KL divergence per patch element -> Shape (N, num_patches, C)
     loss_kl_elements = -0.5 * (1 + logvar - mu**2 - jnp.exp(logvar))
@@ -447,14 +447,14 @@ def main(argv):
     masked_kl_elements = loss_kl_elements * padding_mask[:, :, None] # Shape (N, num_patches, C)
     
     # Sum KL loss over patches dimension (axis=1) -> Shape (N, C)
-    loss_kl = jnp.sum(masked_kl_elements, axis=1)
+    loss_kl_summed_over_patches = jnp.sum(masked_kl_elements, axis=1)
 
     # Correct mean normalization by counting non-padded patches
     num_valid_patches = jnp.sum(padding_mask, axis=1, keepdims=True) # Shape (N, 1)
     
     # Normalize summed losses by number of valid patches (broadcasts correctly)
-    loss_rec = loss_rec / (num_valid_patches + 1e-8) # Shape (N, C)
-    loss_kl = loss_kl / (num_valid_patches + 1e-8) # Shape (N, C)
+    loss_rec = loss_rec_summed_over_patches / (num_valid_patches + 1e-8) # Shape (N, C)
+    loss_kl = loss_kl_summed_over_patches / (num_valid_patches + 1e-8) # Shape (N, C)
 
     if not keep_batch_dim:
         # Average over batch (N) and feature (C) dimensions
@@ -812,34 +812,6 @@ def main(argv):
   if save_ckpt_path or resume_ckpt_path:
     ckpt_mngr = array_serial.GlobalAsyncCheckpointManager()
 
-  def merge_params(current, loaded, path=""):
-    # If both are dicts, merge all keys from both
-    if isinstance(current, dict) and isinstance(loaded, dict):
-        merged = {}
-        all_keys = set(current.keys()) | set(loaded.keys())
-        for k in all_keys:
-            new_path = f"{path}/{k}" if path else k
-            if k in current and k in loaded:
-                merged[k] = merge_params(current[k], loaded[k], new_path)
-            elif k in current:
-                print(f"[merge_params] Key {new_path} only in current, keeping current value.")
-                merged[k] = current[k]
-            else:
-                print(f"[merge_params] Key {new_path} only in loaded, using loaded value.")
-                merged[k] = loaded[k]
-        return merged
-    # If both are arrays, check shape
-    elif hasattr(current, "shape") and hasattr(loaded, "shape"):
-        if current.shape == loaded.shape:
-            return loaded
-        else:
-            print(f"[merge_params] Shape mismatch at {path}: current {getattr(current, 'shape', None)}, loaded {getattr(loaded, 'shape', None)}. Keeping current value.")
-            return current
-    else:
-        # For all other types, keep current
-        return current
-
-
   if resume_ckpt_path:
     write_note(f"Resuming training from checkpoint {resume_ckpt_path}...")
     jax.tree.map(lambda x: x.delete(), train_state)
@@ -854,20 +826,34 @@ def main(argv):
     train_state = {key: loaded[key] for key in train_state_sharding.keys()}
 
     u.chrono.load(jax.device_get(loaded["chrono"]))
+    del loaded
   elif config.get("model_init_ckpt", ""):
     write_note(f"Initialize model from {config.model_init_ckpt}...")
-    loaded_params = model_mod.simple_load(
+    train_state["params"] = model_mod.simple_load(
         train_state["params"], config.model_init_ckpt)
-    train_state["params"] = merge_params(train_state["params"], loaded_params)
-    loaded_ema_params = model_mod.simple_load(
+    train_state["ema_params"] = model_mod.simple_load(
         train_state["ema_params"], config.model_init_ckpt, load_ema=True)
-    train_state["ema_params"] = merge_params(train_state["ema_params"], loaded_ema_params)
-
+    # Ensure params are properly sharded after loading
     train_state["params"] = u.reshard(
         train_state["params"], train_state_sharding["params"])
     train_state["ema_params"] = u.reshard(
         train_state["ema_params"], train_state_sharding["ema_params"])
     
+    parameter_overview.log_parameter_overview(
+        train_state["params"], msg="restored params",
+        include_stats="global", jax_logging_process=0)
+
+  elif config.get("model_init"):
+    write_note(f"Initialize model from {config.model_init}...")
+    train_state["params"] = model_mod.load(
+        train_state["params"], config.model_init, config.get("model"),
+        **config.get("model_load", {}))
+
+    # load has the freedom to return params not correctly sharded. Think of for
+    # example ViT resampling position embedings on CPU as numpy arrays.
+    train_state["params"] = u.reshard(
+        train_state["params"], train_state_sharding["params"])
+
     parameter_overview.log_parameter_overview(
         train_state["params"], msg="restored params",
         include_stats="global", jax_logging_process=0)
@@ -893,8 +879,8 @@ def main(argv):
     x, out = model.apply(
         {"params": train_state["ema_params"]},
         batch.get("image"), None)
-    image = patches_to_image(x, config.posemb_grid_size, config.posemb_grid_size, patch_size=config.patch_size)
-    ref_image = patches_to_image(batch["image"], config.posemb_grid_size, config.posemb_grid_size, patch_size=config.patch_size)
+    image = patches_to_image(x, config.posemb_grid_size, config.posemb_grid_size)
+    ref_image = patches_to_image(batch["image"], config.posemb_grid_size, config.posemb_grid_size)
     total_loss, aux_loss = vae_loss_fn(batch["image"], x, out["mu"], out["logvar"], config.get("beta", 1.0))
     
     # Split the incoming RNG

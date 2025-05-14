@@ -51,7 +51,6 @@ const IMAGE_LIST = [
     'mandelbrot_10k_ar_1024.png',
     'mandelbrot_10k_ar_256.png',
     'mandelbrot_10k_ar_512.png',
-    'metrics.csv',
     'owl_eye_1024.png',
     'owl_eye_256.png',
     'owl_eye_512.png',

@@ -291,4 +291,5 @@ def get_config(arg=None):
 
     if arg.siglip:
       config.siglip_model_init = ""
+
   return config

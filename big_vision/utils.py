@@ -43,6 +43,8 @@ import numpy as np
 
 import tensorflow.io.gfile as gfile  # pylint: disable=consider-using-from-import
 
+from jax.sharding import PartitionSpec as P
+
 
 Registry = pp_registry.Registry
 

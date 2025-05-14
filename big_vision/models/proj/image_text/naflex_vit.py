@@ -238,7 +238,7 @@ class _Model(nn.Module):
       coords = jnp.stack([yabs, xabs], axis=-1)
       shapes = coords.max(axis=1) + 1
       # See comment in `_pos_emb_resize` for details.
-      x += _pos_emb_resize(posembs, shapes, coords, 128)
+      x += _pos_emb_resize(posembs, shapes, coords, 256)
     elif posemb == "rope":
       pass #TODO: Implement Rope 1D
     else:
@@ -280,7 +280,7 @@ class _Model(nn.Module):
       ignore = jnp.where(pool_mask, 0, jnp.finfo(x.dtype).min)
       x = jnp.max(pool_mask * x + ignore, axis=1)
     elif self.pool_type == "tok":
-      x, encoded = x[:, :1], encoded[:, 1:]
+      x, encoded = x[:, :4], encoded[:, 4:]
       #average CLS tokens
       x = jnp.mean(x, axis=1)
       #ptype = ptype[:, 0]
